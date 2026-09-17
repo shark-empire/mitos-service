@@ -1,0 +1,24 @@
+[package]
+name = "mitos-service"
+version = "0.1.0"
+edition = "2021"
+description = "MITOS's permission policy daemon - the rulebook, risk classification, and decision flow the MITOS permissions design calls mitos-service"
+license = "MIT OR Apache-2.0"
+
+# No dependencies at all: everything here (the rulebook file format, the
+# IPC line protocol, risk classification) is small and simple enough to
+# hand-roll against plain std, the same minimal-dependency philosophy
+# mitos-services follows - and unlike that crate, this one never needs
+# to touch a raw syscall directly (no process supervision, no sandboxing,
+# no cgroups here), so there's no libc dependency to pull in either.
+[dependencies]
+
+# Same reasoning as mitos-services' own profile: small, fast-loading
+# binary, no unwind machinery for a process whose error paths already
+# return Result rather than panic.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
