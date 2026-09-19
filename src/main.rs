@@ -4,35 +4,45 @@
 //! design describes: it owns the rulebook (`rulebook.rs`), classifies
 //! how dangerous a requested capability is (`risk.rs`), and answers
 //! `CHECK` requests over a control socket (`ipc.rs`) with a stored
-//! decision or `ASK` when none exists.
+//! decision or `ASK` when none exists. For `Dangerous`/`Critical`
+//! capabilities, `GRANT` now routes through a real, password-verified
+//! elevation prompt on mitos-session (`session_client.rs`) before
+//! recording anything — this daemon is the only thing that decides a
+//! capability is dangerous enough to need one, and mitos-session's own
+//! authorization only accepts that request from this daemon (or root)
+//! specifically, matching the design's own rule that only mitos-session
+//! may check a password, and only this daemon's rulebook may decide
+//! when one's required.
 //!
 //! **What this is not, yet.** The full flow the design describes needs
-//! three other components this repository doesn't build: mitos-kernel
-//! (to actually intercept and report sensitive syscalls), mitos-session
-//! (to verify a password before an `Always`/`Session` grant is
-//! recorded), and mitos-gui (to draw a prompt no other app can fake or
-//! spy on). None of those exist yet in this codebase, so:
-//! - There's no enforcement here - `CHECK` only ever *answers a
+//! two other components this repository doesn't build: mitos-kernel (to
+//! actually intercept and report sensitive syscalls) and mitos-gui (to
+//! draw the prompt itself — that part is mitos-session's and mitos-gui's
+//! job once `session_client.rs` asks for one, not this daemon's). So:
+//! - **There's no enforcement here** - `CHECK` only ever *answers a
 //!   question*, it never blocks a syscall itself. That's mitos-kernel's
 //!   job once it exists.
-//! - There's no interactive prompt flow - an `ASK` response means
-//!   exactly that mitos-service has nothing stored and no way to go get
-//!   a decision itself. `mitosvc-ctl grant` is today's only way to turn
-//!   an `ASK` into a stored decision (standing in for what a real
-//!   password-verified prompt would eventually do automatically).
-//! - No password is ever checked by this process, matching the design's
-//!   own rule that only mitos-session may do that - there's simply no
-//!   password-checking code path here at all to get wrong.
+//! - **`ASK` is still a dead end on its own** - it means nothing's
+//!   stored, full stop; this daemon has no way to interactively resolve
+//!   one itself the moment an app asks. `mitosvc-ctl grant` (now
+//!   itself real-password-gated for dangerous capabilities) remains
+//!   today's only way to turn an `ASK` into a stored decision — what's
+//!   changed is that doing so for something dangerous now genuinely
+//!   requires proving it's really the account owner, not just having
+//!   root on the box.
 //!
 //! This process itself can run as an ordinary mitos-services-supervised
 //! service (see that project's `INTEGRATION.md`) - it doesn't need to be
 //! PID 1 or anything special, just running before anything tries to
-//! `CHECK` against it.
+//! `CHECK` against it, and reachable at mitos-session's socket by the
+//! time anything tries to `GRANT` something dangerous.
 
 mod ipc;
 mod logging;
 mod risk;
 mod rulebook;
+mod session_client;
+mod session_wire;
 
 fn main() {
     logging::init();

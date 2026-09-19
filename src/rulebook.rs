@@ -129,8 +129,7 @@ fn parse_line(line: &str) -> Option<Grant> {
 /// log plus compaction, and cheap at the sizes this ever reaches.
 fn persist(path: &str) {
     let Ok(s) = store().lock() else { return };
-    let mut out =
-        String::from("# MITOS permissions.db - do not edit while mitos-service is running\n");
+    let mut out = String::from("# MITOS permissions.db - do not edit while mitos-service is running\n");
     for grant in s.grants.values() {
         if grant.scope != Scope::Always {
             continue;
@@ -234,13 +233,7 @@ mod tests {
     fn grant_then_lookup_round_trips() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset();
-        grant(
-            "abc123",
-            "camera",
-            Decision::Allow,
-            Scope::Session,
-            "/tmp/does-not-matter",
-        );
+        grant("abc123", "camera", Decision::Allow, Scope::Session, "/tmp/does-not-matter");
         assert_eq!(lookup("abc123", "camera"), Some(Decision::Allow));
     }
 
@@ -255,13 +248,7 @@ mod tests {
     fn once_scoped_grant_is_consumed_after_one_lookup() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset();
-        grant(
-            "abc123",
-            "microphone",
-            Decision::Deny,
-            Scope::Once,
-            "/tmp/does-not-matter",
-        );
+        grant("abc123", "microphone", Decision::Deny, Scope::Once, "/tmp/does-not-matter");
         assert_eq!(lookup("abc123", "microphone"), Some(Decision::Deny));
         assert_eq!(lookup("abc123", "microphone"), None);
     }
@@ -270,13 +257,7 @@ mod tests {
     fn session_scoped_grant_survives_repeated_lookups() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset();
-        grant(
-            "abc123",
-            "location",
-            Decision::Allow,
-            Scope::Session,
-            "/tmp/does-not-matter",
-        );
+        grant("abc123", "location", Decision::Allow, Scope::Session, "/tmp/does-not-matter");
         assert_eq!(lookup("abc123", "location"), Some(Decision::Allow));
         assert_eq!(lookup("abc123", "location"), Some(Decision::Allow));
     }
@@ -285,13 +266,7 @@ mod tests {
     fn revoke_removes_a_grant() {
         let _guard = TEST_LOCK.lock().unwrap();
         reset();
-        grant(
-            "abc123",
-            "camera",
-            Decision::Allow,
-            Scope::Session,
-            "/tmp/does-not-matter",
-        );
+        grant("abc123", "camera", Decision::Allow, Scope::Session, "/tmp/does-not-matter");
         revoke("abc123", "camera", "/tmp/does-not-matter");
         assert_eq!(lookup("abc123", "camera"), None);
     }

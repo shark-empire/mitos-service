@@ -86,6 +86,18 @@ pub fn classify(capability: &str) -> Risk {
     table().get(capability).copied().unwrap_or(Risk::Dangerous)
 }
 
+/// Whether a `GRANT` at this risk level requires a real,
+/// password-verified elevation (`session_client::request_elevation`)
+/// before `rulebook::grant` records it, versus applying immediately
+/// the way every `GRANT` did before this daemon could talk to
+/// mitos-session at all. `Low`/`Moderate` stay immediate - matching
+/// the permissions design's own framing of those as reversible and
+/// easy to notice being misused, not worth interrupting an
+/// administrator's workflow over every time.
+pub fn requires_elevation(risk: Risk) -> bool {
+    matches!(risk, Risk::Dangerous | Risk::Critical)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,10 +114,7 @@ mod tests {
 
     #[test]
     fn unrecognized_capability_defaults_to_dangerous() {
-        assert_eq!(
-            classify("something_nobody_taught_this_table_about"),
-            Risk::Dangerous
-        );
+        assert_eq!(classify("something_nobody_taught_this_table_about"), Risk::Dangerous);
     }
 
     #[test]
@@ -113,5 +122,13 @@ mod tests {
         assert!(Risk::Low < Risk::Moderate);
         assert!(Risk::Moderate < Risk::Dangerous);
         assert!(Risk::Dangerous < Risk::Critical);
+    }
+
+    #[test]
+    fn only_dangerous_and_critical_require_elevation() {
+        assert!(!requires_elevation(Risk::Low));
+        assert!(!requires_elevation(Risk::Moderate));
+        assert!(requires_elevation(Risk::Dangerous));
+        assert!(requires_elevation(Risk::Critical));
     }
 }
