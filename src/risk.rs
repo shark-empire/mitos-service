@@ -114,7 +114,10 @@ mod tests {
 
     #[test]
     fn unrecognized_capability_defaults_to_dangerous() {
-        assert_eq!(classify("something_nobody_taught_this_table_about"), Risk::Dangerous);
+        assert_eq!(
+            classify("something_nobody_taught_this_table_about"),
+            Risk::Dangerous
+        );
     }
 
     #[test]

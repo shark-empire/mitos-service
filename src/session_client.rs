@@ -21,7 +21,9 @@
 //! description it built), never anything caller-controlled from
 //! whatever's on the other end of the control socket.
 
-use crate::session_wire::{self, AuthOutcome, ElevationAction, ElevationRisk, Message, Request, Response};
+use crate::session_wire::{
+    self, AuthOutcome, ElevationAction, ElevationRisk, Message, Request, Response,
+};
 use std::io;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -99,10 +101,14 @@ pub fn request_elevation(
         duration_label: "Until revoked".to_string(),
     };
 
-    session_wire::write_message(&mut stream, &Request::RequestElevation { session_id, action })
-        .map_err(SessionClientError::Protocol)?;
+    session_wire::write_message(
+        &mut stream,
+        &Request::RequestElevation { session_id, action },
+    )
+    .map_err(SessionClientError::Protocol)?;
 
-    let msg: Message = session_wire::read_message(&mut stream).map_err(SessionClientError::Protocol)?;
+    let msg: Message =
+        session_wire::read_message(&mut stream).map_err(SessionClientError::Protocol)?;
     match msg {
         Message::Response(Response::AuthResult(outcome)) => Ok(outcome),
         Message::Response(Response::Error(e)) => Err(SessionClientError::Refused(e)),
@@ -129,7 +135,8 @@ fn find_session_id(
     stream: &mut UnixStream,
     uid: u32,
 ) -> Result<session_wire::SessionId, SessionClientError> {
-    session_wire::write_message(stream, &Request::ListSessions).map_err(SessionClientError::Protocol)?;
+    session_wire::write_message(stream, &Request::ListSessions)
+        .map_err(SessionClientError::Protocol)?;
     let msg: Message = session_wire::read_message(stream).map_err(SessionClientError::Protocol)?;
     match msg {
         Message::Response(Response::Sessions(sessions)) => sessions

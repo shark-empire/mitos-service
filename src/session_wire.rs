@@ -285,7 +285,8 @@ pub fn read_message<R: std::io::Read, T: serde::de::DeserializeOwned>(
     }
     let mut payload = vec![0u8; len as usize];
     reader.read_exact(&mut payload)?;
-    bincode::deserialize(&payload).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    bincode::deserialize(&payload)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }
 
 #[cfg(test)]
@@ -329,8 +330,12 @@ mod tests {
     fn auth_outcome_variants_round_trip_including_the_last_one_added() {
         for outcome in [
             AuthOutcome::Success,
-            AuthOutcome::Failure { attempts_remaining: 2 },
-            AuthOutcome::LockedOut { retry_after_secs: 30 },
+            AuthOutcome::Failure {
+                attempts_remaining: 2,
+            },
+            AuthOutcome::LockedOut {
+                retry_after_secs: 30,
+            },
             AuthOutcome::Error("pam broke".into()),
             AuthOutcome::Cancelled,
         ] {
