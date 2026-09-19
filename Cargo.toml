@@ -11,7 +11,21 @@ license = "MIT OR Apache-2.0"
 # mitos-services follows - and unlike that crate, this one never needs
 # to touch a raw syscall directly (no process supervision, no sandboxing,
 # no cgroups here), so there's no libc dependency to pull in either.
+#
+# The one exception: serde + bincode, used only by `session_wire` to
+# speak mitos-session's real elevation wire protocol (see that module's
+# doc comment). Same reasoning mitos-settings uses for the identical
+# dependency: hand-rolling a byte-compatible codec for a security-
+# critical authentication message, with no way to test it against a
+# real mitos-session, was judged riskier than depending on the same
+# well-tested library mitos-session itself uses - and depending on the
+# `mitos-session` crate wholesale would drag `pam`/`nix`/`calloop` into
+# this daemon for functionality it never touches. Pinned to the exact
+# versions mitos-session itself uses, since bincode's wire format is a
+# property of the version, not just the API.
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+bincode = "1.3"
 
 # Same reasoning as mitos-services' own profile: small, fast-loading
 # binary, no unwind machinery for a process whose error paths already

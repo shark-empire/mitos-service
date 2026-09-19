@@ -29,13 +29,21 @@ restart (see `rulebook.rs`'s tests for the invariants this is supposed
 to already guarantee - a failure there is a bug).
 
 Known, already-documented limitations that are *not* new reports:
-this daemon does no enforcement and has no real interactive prompt
-flow, because mitos-kernel/mitos-session/mitos-gui don't exist yet -
-see `README.md`. It also doesn't (and can't, without mitos-kernel)
-independently verify that a `sha256` a caller sends actually
-corresponds to the process making the underlying request - that
-verification has to happen upstream, in whatever eventually calls
-`CHECK` for real.
+this daemon does no enforcement, because mitos-kernel doesn't exist
+yet - see `README.md`. It also doesn't (and can't, without
+mitos-kernel) independently verify that a `sha256` a caller sends
+actually corresponds to the process making the underlying request -
+that verification has to happen upstream, in whatever eventually calls
+`CHECK` for real. The same trust-the-caller shape applies to `GRANT`'s
+`<uid>` parameter as of the mitos-session integration
+(`session_client.rs`): this daemon has no way to independently confirm
+the uid a caller supplies is actually the person on whose behalf the
+change is being made - it trusts whoever can reach the `0600`
+root-only socket to pass the right one. A caller that lied would only
+ever manage to show a *different* logged-in user a confusing,
+unrelated password prompt (a nuisance), never bypass the password
+check itself - mitos-session's own PAM verification is what actually
+gates the grant, and that part can't be forged by a false `<uid>`.
 
 ## Supported versions
 

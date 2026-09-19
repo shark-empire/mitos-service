@@ -3,8 +3,10 @@
 How another MITOS project asks mitos-service for a permission decision,
 or records one. See `README.md` for what this daemon does and
 doesn't do yet before building against it - in particular, `CHECK`
-never blocks anything itself, and there's no real interactive prompt
-flow behind `ASK` yet.
+never blocks anything itself, and an `ASK` reply is still a dead end on
+its own (nothing here turns an app's live request into a prompt) - but
+`GRANT` on a dangerous capability is now a real, password-verified
+elevation, not an administrative rubber stamp.
 
 ## The short version
 
@@ -35,17 +37,32 @@ recognizes; an unrecognized one is treated as `dangerous`, not rejected).
   purely informational until something (today: an administrator, via
   `mitosvc-ctl grant`) records a decision.
 
-### `GRANT <sha256> <capability> <allow|deny> <once|session|always>`
+### `GRANT <sha256> <capability> <allow|deny> <once|session|always> <uid>`
 
-Records a decision. `once` is consumed by the very next `CHECK` for the
-same pair (whatever the result); `session` lasts until mitos-service
-restarts; `always` is persisted to `rulebook::DEFAULT_PATH` and
-survives a restart, until explicitly revoked or the hash changes.
+Records a decision on `<uid>`'s behalf. `once` is consumed by the very
+next `CHECK` for the same pair (whatever the result); `session` lasts
+until mitos-service restarts; `always` is persisted to
+`rulebook::DEFAULT_PATH` and survives a restart, until explicitly
+revoked or the hash changes.
 
-This is the call a real password-verified prompt flow would make once
-mitos-session/mitos-gui exist. Until then, it's an administrative
-action - nothing currently connecting to this socket makes it on a
-user's behalf automatically.
+For a `dangerous`/`critical` capability, this now genuinely is the real
+password-verified prompt flow the design describes -
+`session_client::request_elevation` asks `<uid>`'s own mitos-session
+session to verify their password before anything is recorded, and this
+call blocks until they answer (or decline, or it times out). For
+`low`/`moderate`, it still applies immediately with no verification,
+same as before this daemon could reach mitos-session at all.
+
+Three shapes of response, not just success/failure - a caller should
+handle all three distinctly rather than treating "not `granted`" as one
+undifferentiated failure:
+- `granted` - recorded.
+- `denied: ...` - elevation ran and came back negative (wrong password
+  repeatedly, or declined). The rulebook is unchanged.
+- `error: ...` - something failed before a decision could even be
+  reached (bad arguments, mitos-service can't reach mitos-session,
+  `<uid>` has no active mitos-session session). Also leaves the
+  rulebook unchanged.
 
 ### `REVOKE <sha256> <capability>`
 
@@ -54,7 +71,15 @@ Removes whatever decision (any scope) is on file for the pair.
 ### `LIST`
 
 Every currently-held grant - `sha256`, `capability`, decision, scope,
-and when it was granted (unix seconds), one per line.
+and when it was granted (unix seconds), formatted for a human reading
+`mitosvc-ctl list`'s own output.
+
+### `LIST-RAW`
+
+The same data, `sha256|capability|decision|scope|granted_at` one grant
+per line, no header or trailing summary - for a caller that wants to
+parse it (e.g. mitos-settings) instead of displaying `LIST`'s output
+verbatim.
 
 ### `PING`
 
@@ -104,10 +129,24 @@ account with write access to `/var/lib/mitos-service` and
   variant of it) from whatever intercepts a sensitive syscall, and to
   be told about `Always`/`Session` grants so it can enforce them
   itself without round-tripping to this daemon every time - not
-  implemented; `rulebook::list()` is the natural source for that today.
-- **mitos-session**: expected to be the one mitos-service asks to
-  verify a password before recording an `Always`/`Session` grant from
-  a real (non-administrative) prompt flow. No code here calls out to
-  it yet - see `README.md`'s "what this isn't yet" section.
-- **mitos-gui**: expected to draw the actual prompt a user sees. Same
-  status - no integration exists yet.
+  implemented; `rulebook::list()` (or `LIST-RAW` over the socket) is
+  the natural source for that today.
+- **mitos-session**: done - `session_client.rs` calls
+  `RequestElevation` for `dangerous`/`critical` `GRANT`s, on the
+  account whose uid the caller passes. mitos-session's own
+  authorization accepts that request from this daemon specifically
+  (root, or its configured `[elevation].service_user`, which should be
+  set to whatever account mitos-service runs as - see this file's
+  systemd unit example above) - see mitos-session's own
+  `docs/security.md` for that reasoning in full.
+- **mitos-gui**: draws the actual prompt a user sees once mitos-session
+  asks it to. Not this repository's concern at all - mitos-service
+  never talks to mitos-gui directly, only to mitos-session.
+- **What still doesn't exist anywhere**: a way for an app's own
+  *live*, in-the-moment permission request to reach this daemon and
+  become a `GRANT` call automatically. `GRANT` today is always
+  initiated by whatever's on the other end of the control socket
+  (`mitosvc-ctl grant`, or a client like mitos-settings) - not by this
+  daemon reacting to an app's `CHECK` coming back `ASK`. Closing that
+  loop is mitos-services' `apps.rs` (or mitos-kernel's) job, not
+  something this daemon does on its own.

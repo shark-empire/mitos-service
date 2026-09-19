@@ -24,3 +24,14 @@ accordingly.
   deliberately, since mitos-kernel/mitos-session/mitos-gui don't exist
   yet to build those against. See `README.md`'s "what this is and
   isn't" section.
+- Real elevation for dangerous grants: `GRANT` on a `dangerous`/
+  `critical` capability now calls mitos-session's real
+  `RequestElevation` (`session_client.rs`, mirroring its wire protocol
+  in `session_wire.rs`) and blocks until the target uid's session
+  answers, instead of applying immediately on the strength of whoever
+  could reach the control socket. `GRANT`'s wire format gained a
+  required `<uid>` parameter as part of this (a breaking change to the
+  command, made now rather than after any real deployment exists to
+  break). Added `LIST-RAW` alongside the existing `LIST`, for a
+  programmatic caller (mitos-settings) to parse without depending on
+  `LIST`'s human-formatted output.
